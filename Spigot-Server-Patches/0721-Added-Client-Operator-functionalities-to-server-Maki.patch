@@ -1,0 +1,206 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Keven Chausse <kevenchausse@gmail.com>
+Date: Wed, 5 May 2021 23:00:33 -0400
+Subject: [PATCH] Added Client Operator functionalities to server (Making the
+ client believe it has OP privileges to allow command block interface to pop
+ up)
+
+
+diff --git a/src/main/java/net/minecraft/server/MinecraftServer.java b/src/main/java/net/minecraft/server/MinecraftServer.java
+index 61712ae515b329a6b85dbe2e5960e4e864dc7731..abc6b01097f2c0f20f46ffd0db8c8b8456712ae6 100644
+--- a/src/main/java/net/minecraft/server/MinecraftServer.java
++++ b/src/main/java/net/minecraft/server/MinecraftServer.java
+@@ -2124,7 +2124,14 @@ public abstract class MinecraftServer extends IAsyncTaskHandlerReentrant<TickTas
+             OpListEntry oplistentry = (OpListEntry) this.getPlayerList().getOPs().get(gameprofile);
+ 
+             return oplistentry != null ? oplistentry.a() : (this.a(gameprofile) ? 4 : (this.isEmbeddedServer() ? (this.getPlayerList().u() ? 4 : 0) : this.g()));
+-        } else {
++        }
++        // Paper start
++        else if (this.getPlayerList().isClientOp(gameprofile)) {
++            OpListEntry opListEntry = (OpListEntry) this.getPlayerList().getClientOps().get(gameprofile);
++            return opListEntry != null ? opListEntry.a() : (this.a(gameprofile) ? 4 : (this.isEmbeddedServer() ? (this.getPlayerList().u() ? 4 : 0) : this.g()));
++        }
++        // Paper end
++        else {
+             return 0;
+         }
+     }
+diff --git a/src/main/java/net/minecraft/server/dedicated/DedicatedPlayerList.java b/src/main/java/net/minecraft/server/dedicated/DedicatedPlayerList.java
+index a762cf4c4a52bcbc8dbfd60b3ad7fef5489ba5c5..36c7bef223f548ba1447ff5744ba0b284574f142 100644
+--- a/src/main/java/net/minecraft/server/dedicated/DedicatedPlayerList.java
++++ b/src/main/java/net/minecraft/server/dedicated/DedicatedPlayerList.java
+@@ -30,6 +30,9 @@ public class DedicatedPlayerList extends PlayerList {
+         this.z();
+         this.B();
+         this.A();
++        // Paper start
++        this.SaveClientOps();
++        // Paper end
+         if (!this.getWhitelist().b().exists()) {
+             this.C();
+         }
+@@ -42,6 +45,29 @@ public class DedicatedPlayerList extends PlayerList {
+         this.getServer().setHasWhitelist(flag);
+     }
+ 
++    // Paper start
++    @Override
++    public void addClientOp(GameProfile gameprofile) {
++        super.addClientOp(gameprofile);
++        this.SaveClientOps();
++    }
++
++    @Override
++    public void removeClientOp(GameProfile gameprofile) {
++        super.removeClientOp(gameprofile);
++        this.SaveClientOps();
++    }
++
++    private void SaveClientOps() {
++        try {
++            this.getClientOps().save();
++        } catch (Exception e) {
++            LOGGER.warn("Failed to save client operators list: ", e);
++        }
++    }
++
++    // Paper end
++
+     @Override
+     public void addOp(GameProfile gameprofile) {
+         super.addOp(gameprofile);
+diff --git a/src/main/java/net/minecraft/server/players/PlayerList.java b/src/main/java/net/minecraft/server/players/PlayerList.java
+index aaa6f3aeaf1b47275a1c8fc22ee99475e62c32a0..21dad70ca655dcd5c380b34a9e140ebdf877af43 100644
+--- a/src/main/java/net/minecraft/server/players/PlayerList.java
++++ b/src/main/java/net/minecraft/server/players/PlayerList.java
+@@ -130,6 +130,9 @@ public abstract class PlayerList {
+     public static final File c = new File("banned-ips.json");
+     public static final File d = new File("ops.json");
+     public static final File e = new File("whitelist.json");
++    // Paper start
++    public static final File f = new File("clientops.json");
++    // Paper end
+     private static final Logger LOGGER = LogManager.getLogger();
+     private static final SimpleDateFormat g = new SimpleDateFormat("yyyy-MM-dd 'at' HH:mm:ss z");
+     private final MinecraftServer server;
+@@ -138,6 +141,9 @@ public abstract class PlayerList {
+     private final GameProfileBanList k;
+     private final IpBanList l;
+     private final OpList operators;
++    // Paper start
++    private final OpList clientOperators;
++    // Paper end
+     private final WhiteList whitelist;
+     private final Map<UUID, EntityPlayer> pendingPlayers = Maps.newHashMap(); // Paper
+     // CraftBukkit start
+@@ -166,6 +172,9 @@ public abstract class PlayerList {
+         this.k = new GameProfileBanList(PlayerList.b);
+         this.l = new IpBanList(PlayerList.c);
+         this.operators = new OpList(PlayerList.d);
++        // Paper start
++        this.clientOperators = new OpList(PlayerList.f);
++        // Paper end
+         this.whitelist = new WhiteList(PlayerList.e);
+         // CraftBukkit start
+         // this.o = Maps.newHashMap();
+@@ -1135,6 +1144,36 @@ public abstract class PlayerList {
+         return this.l;
+     }
+ 
++    // Paper start
++
++    public boolean isClientOp(GameProfile gameProfile) {
++        return this.clientOperators.d(gameProfile);
++    }
++
++    public void addClientOp(GameProfile gameprofile) {
++        this.clientOperators.add(new OpListEntry(gameprofile, this.server.g(), this.clientOperators.b(gameprofile)));
++        EntityPlayer entityplayer = this.getPlayer(gameprofile.getId());
++
++        if (entityplayer != null) {
++            this.d(entityplayer);
++        }
++    }
++
++    public void removeClientOp(GameProfile gameprofile) {
++        this.clientOperators.remove(gameprofile);
++        EntityPlayer entityPlayer = this.getPlayer(gameprofile.getId());
++
++        if(entityPlayer != null) {
++            this.d(entityPlayer);
++        }
++    }
++
++    public OpList getClientOps() {
++        return this.clientOperators;
++    }
++
++    // Paper end
++
+     public void addOp(GameProfile gameprofile) {
+         this.operators.add(new OpListEntry(gameprofile, this.server.g(), this.operators.b(gameprofile)));
+         EntityPlayer entityplayer = this.getPlayer(gameprofile.getId());
+diff --git a/src/main/java/org/bukkit/craftbukkit/CraftOfflinePlayer.java b/src/main/java/org/bukkit/craftbukkit/CraftOfflinePlayer.java
+index 1e741158bbcc0991259436bec549b32df61f0c54..418b84fe28342b29ce29c221739c77f74d7c4eb3 100644
+--- a/src/main/java/org/bukkit/craftbukkit/CraftOfflinePlayer.java
++++ b/src/main/java/org/bukkit/craftbukkit/CraftOfflinePlayer.java
+@@ -78,6 +78,26 @@ public class CraftOfflinePlayer implements OfflinePlayer, ConfigurationSerializa
+         return server;
+     }
+ 
++    // Paper start
++    @Override
++    public boolean isClientOp() {
++        return server.getHandle().isClientOp(profile);
++    }
++
++    @Override
++    public void setClientOp(boolean value) {
++        if(value == isClientOp()) {
++            return;
++        }
++
++        if(value) {
++            server.getHandle().addClientOp(profile);
++        } else {
++            server.getHandle().removeClientOp(profile);
++        }
++    }
++    // Paper end
++
+     @Override
+     public boolean isOp() {
+         return server.getHandle().isOp(profile);
+diff --git a/src/main/java/org/bukkit/craftbukkit/entity/CraftPlayer.java b/src/main/java/org/bukkit/craftbukkit/entity/CraftPlayer.java
+index e5549439b3d4d608cf37dd33b6c8c9e10dfe9328..cc518ad0ac5898010e03bab9af165d59c134b8b9 100644
+--- a/src/main/java/org/bukkit/craftbukkit/entity/CraftPlayer.java
++++ b/src/main/java/org/bukkit/craftbukkit/entity/CraftPlayer.java
+@@ -168,6 +168,27 @@ public class CraftPlayer extends CraftHumanEntity implements Player {
+         return getHandle().getProfile();
+     }
+ 
++    // Paper start
++    @Override
++    public boolean isClientOp() {
++        return server.getHandle().isClientOp(getProfile());
++    }
++
++    @Override
++    public void setClientOp(boolean value)
++    {
++        if(value == isClientOp()) {
++            return;
++        }
++
++        if (value) {
++            server.getHandle().addClientOp(getProfile());
++        } else {
++            server.getHandle().removeClientOp(getProfile());
++        }
++    }
++    // Paper end
++
+     @Override
+     public boolean isOp() {
+         return server.getHandle().isOp(getProfile());

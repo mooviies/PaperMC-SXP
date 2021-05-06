@@ -1,0 +1,41 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Keven Chausse <kevenchausse@gmail.com>
+Date: Wed, 5 May 2021 22:58:54 -0400
+Subject: [PATCH] Added ClientOperator interface and implemented it on
+ OfflinePlayer
+
+
+diff --git a/src/main/java/org/bukkit/OfflinePlayer.java b/src/main/java/org/bukkit/OfflinePlayer.java
+index 3afd5f5c0208a4ee93b5dbfc2aab2b9d2e8a7544..f54dc530eb0acfba3d8c85d568077a822bf5e419 100644
+--- a/src/main/java/org/bukkit/OfflinePlayer.java
++++ b/src/main/java/org/bukkit/OfflinePlayer.java
+@@ -5,11 +5,14 @@ import org.bukkit.configuration.serialization.ConfigurationSerializable;
+ import org.bukkit.entity.AnimalTamer;
+ import org.bukkit.entity.EntityType;
+ import org.bukkit.entity.Player;
++import org.bukkit.permissions.ClientOperator;
+ import org.bukkit.permissions.ServerOperator;
+ import org.jetbrains.annotations.NotNull;
+ import org.jetbrains.annotations.Nullable;
+ 
+-public interface OfflinePlayer extends ServerOperator, AnimalTamer, ConfigurationSerializable {
++// Paper start
++public interface OfflinePlayer extends ServerOperator, AnimalTamer, ConfigurationSerializable, ClientOperator {
++// Paper end
+ 
+     /**
+      * Checks if this player is currently online
+diff --git a/src/main/java/org/bukkit/permissions/ClientOperator.java b/src/main/java/org/bukkit/permissions/ClientOperator.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..389bbf557422c643ec753a39b1d589171aa729e0
+--- /dev/null
++++ b/src/main/java/org/bukkit/permissions/ClientOperator.java
+@@ -0,0 +1,8 @@
++package org.bukkit.permissions;
++
++// Paper start
++public interface ClientOperator {
++    public boolean isClientOp();
++    public void setClientOp(boolean value);
++}
++// Paper end
