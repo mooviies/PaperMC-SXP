@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<metadata>
+  <groupId>online.studioxp.paper</groupId>
+  <artifactId>paper-api</artifactId>
+  <versioning>
+    <versions>
+      <version>1.16.5-R0.1-SNAPSHOT</version>
+    </versions>
+    <lastUpdated>20210506041445</lastUpdated>
+  </versioning>
+</metadata>
